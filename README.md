@@ -18,6 +18,28 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## MSSQL API Route
+
+This project includes an API route that reads from a local MSSQL view:
+
+- Route: `GET /api/view`
+- Handler: `app/api/view/route.ts`
+
+Set environment variables in `.env.local` (you can copy from `.env.example`):
+
+```bash
+MSSQL_SERVER=localhost
+MSSQL_PORT=1433
+MSSQL_USER=sa
+MSSQL_PASSWORD=your_password
+MSSQL_DATABASE=your_database
+MSSQL_VIEW_NAME=dbo.YourViewName
+MSSQL_ENCRYPT=false
+MSSQL_TRUST_SERVER_CERTIFICATE=true
+```
+
+Then run `pnpm dev` and call `http://localhost:3000/api/view`.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
