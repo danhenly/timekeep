@@ -5,6 +5,7 @@ export type ViewRow = Record<string, unknown>
 const poolCache = globalThis as typeof globalThis & {
     mssqlPoolPromise?: Promise<sql.ConnectionPool>
     allViewRowsPromise?: Promise<ViewRow[]>
+    allLeavesRowsPromise?: Promise<ViewRow[]>
 }
 
 function parseServerValue(raw: string): { host: string; instanceName?: string } {
@@ -54,6 +55,13 @@ export function getEmpRecColumnName(): string {
 export function getEmpOldIdColumnName(): string {
     const raw = process.env.MSSQL_EMP_OLD_ID_COLUMN ?? 'empOldID'
     return getSafeObjectName(raw, 'MSSQL_EMP_OLD_ID_COLUMN')
+}
+
+export function getLeavesViewName(): string {
+    return getSafeObjectName(
+        requireEnv('MSSQL_LEAVES_VIEW_NAME'),
+        'MSSQL_LEAVES_VIEW_NAME'
+    )
 }
 
 function getRowValueByColumnName(row: ViewRow, columnName: string): unknown {
@@ -117,6 +125,13 @@ async function queryAllViewRows(): Promise<ViewRow[]> {
     return result.recordset as ViewRow[]
 }
 
+async function queryAllLeavesRows(): Promise<ViewRow[]> {
+    const viewName = getLeavesViewName()
+    const pool = await getPool()
+    const result = await pool.request().query(`SELECT * FROM ${viewName}`)
+    return result.recordset as ViewRow[]
+}
+
 export function getAllViewRows(): Promise<ViewRow[]> {
     if (!poolCache.allViewRowsPromise) {
         // Reuse one DB read for static params generation and page rendering.
@@ -127,6 +142,17 @@ export function getAllViewRows(): Promise<ViewRow[]> {
     }
 
     return poolCache.allViewRowsPromise
+}
+
+export function getAllLeavesRows(): Promise<ViewRow[]> {
+    if (!poolCache.allLeavesRowsPromise) {
+        poolCache.allLeavesRowsPromise = queryAllLeavesRows().catch((error: unknown) => {
+            poolCache.allLeavesRowsPromise = undefined
+            throw error
+        })
+    }
+
+    return poolCache.allLeavesRowsPromise
 }
 
 export async function getRowsForEmpRec(empRec: string): Promise<ViewRow[]> {

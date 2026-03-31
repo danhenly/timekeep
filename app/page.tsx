@@ -223,18 +223,18 @@ export default function Home() {
             value={empOldID}
             onChange={(event) => setEmpOldID(event.target.value)}
             placeholder="Enter ID number"
-            className="h-14 flex-1 rounded-lg border border-slate-300 px-4 text-lg outline-none ring-0 placeholder:text-slate-400 focus:border-slate-500"
+            className="h-16 min-h-16 w-full appearance-none rounded-lg border border-slate-300 px-4 text-xl outline-none ring-0 placeholder:text-slate-400 focus:border-slate-500 sm:h-14 sm:min-h-14 sm:text-lg"
           />
           <button
             type="submit"
-            className="h-14 rounded-lg bg-slate-900 px-6 text-lg font-medium text-white transition hover:bg-slate-700"
+            className="h-16 min-h-16 rounded-lg bg-slate-900 px-6 text-xl font-medium text-white transition hover:bg-slate-700 sm:h-14 sm:min-h-14 sm:text-lg"
           >
             View Records
           </button>
         </form>
 
         <div className="mt-8 border-t border-slate-200 pt-6">
-          <p className="text-sm text-slate-600">Or scan a QR code</p>
+          <p className="text-sm text-slate-600">Or scan your ID QR code</p>
           <div className="mt-3 flex flex-wrap gap-3">
             {!scanning ? (
               <button

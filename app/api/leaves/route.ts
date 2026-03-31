@@ -1,4 +1,4 @@
-import { getAllViewRows } from '@/lib/mssql-view'
+import { getAllLeavesRows } from '@/lib/mssql-view'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-static'
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
             })
         }
 
-        const rows = await getAllViewRows()
+        const rows = await getAllLeavesRows()
 
         return Response.json({
             rows,
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
         const message = error instanceof Error ? error.message : 'Unknown error'
 
         return Response.json(
-            { error: 'Failed to query MSSQL view', message },
+            { error: 'Failed to query MSSQL leaves view', message },
             { status: 500 }
         )
     }

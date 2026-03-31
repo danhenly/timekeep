@@ -25,6 +25,11 @@ This project includes an API route that reads from a local MSSQL view:
 - Route: `GET /api/view`
 - Handler: `app/api/view/route.ts`
 
+This project also includes a leaves route:
+
+- Route: `GET /api/leaves`
+- Handler: `app/api/leaves/route.ts`
+
 Set environment variables in `.env.local` (you can copy from `.env.example`):
 
 ```bash
@@ -34,6 +39,7 @@ MSSQL_USER=sa
 MSSQL_PASSWORD=your_password
 MSSQL_DATABASE=your_database
 MSSQL_VIEW_NAME=dbo.YourViewName
+MSSQL_LEAVES_VIEW_NAME=dbo.YourLeavesFiledView
 MSSQL_ENCRYPT=false
 MSSQL_TRUST_SERVER_CERTIFICATE=true
 ```
