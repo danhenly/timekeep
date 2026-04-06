@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "pagedeploy": "npx wrangler pages deploy out --project-name timekeep",
+    "pagedeploy": "next build && npx wrangler pages deploy out --project-name timekeep",
     "lint": "eslint"
   },
   "dependencies": {
