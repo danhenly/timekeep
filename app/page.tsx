@@ -212,7 +212,7 @@ export default function Home() {
         <h1 className="text-3xl font-semibold tracking-tight">Timekeeping</h1>
 
         <form
-          className="mt-6 flex flex-col gap-3 sm:flex-row"
+          className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-stretch"
           onSubmit={(event) => {
             event.preventDefault()
             redirectToEmployeePage(empOldID)
@@ -223,11 +223,11 @@ export default function Home() {
             value={empOldID}
             onChange={(event) => setEmpOldID(event.target.value)}
             placeholder="Enter ID number"
-            className="h-16 min-h-16 w-full appearance-none rounded-lg border border-slate-300 px-4 text-xl outline-none ring-0 placeholder:text-slate-400 focus:border-slate-500 sm:h-14 sm:min-h-14 sm:text-lg"
+            className="h-16 min-h-16 w-full min-w-0 flex-1 appearance-none rounded-lg border border-slate-300 px-4 text-xl outline-none ring-0 placeholder:text-slate-400 focus:border-slate-500 sm:h-14 sm:min-h-14 sm:text-lg"
           />
           <button
             type="submit"
-            className="h-16 min-h-16 rounded-lg bg-slate-900 px-6 text-xl font-medium text-white transition hover:bg-slate-700 sm:h-14 sm:min-h-14 sm:text-lg"
+            className="h-16 min-h-16 shrink-0 whitespace-nowrap rounded-lg bg-slate-900 px-6 text-xl font-medium text-white transition hover:bg-slate-700 sm:h-14 sm:min-h-14 sm:px-7 sm:text-lg lg:px-8"
           >
             View Records
           </button>

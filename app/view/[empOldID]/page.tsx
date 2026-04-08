@@ -1,12 +1,14 @@
 import { createHash } from 'node:crypto'
 import { Fragment } from 'react'
 import {
+    getAllHolidaysRows,
     getAllLeavesRows,
     getEmpOldIdParamValues,
     getRowsForEmpOldId,
 } from '@/lib/mssql-view'
 import BirthdateAccessGate from './birthdate-access-gate'
 import DownloadIdQrButton from './download-id-qr-button'
+import HolidayBadge from './holiday-badge'
 
 type Row = Record<string, unknown>
 type PunchPair = {
@@ -216,6 +218,119 @@ function getLeaveDateKeysForRow(row: Row): string[] {
     return [toDateKey(startOfDay(singleDate))]
 }
 
+function getHolidaySourceDate(row: Row): Date | null {
+    const candidates = [
+        getValueCaseInsensitive(row, 'holDate'),
+        getValueCaseInsensitive(row, 'holidayDate'),
+        getValueCaseInsensitive(row, 'date'),
+        getValueCaseInsensitive(row, 'dateFrom'),
+        getValueCaseInsensitive(row, 'fromDate'),
+    ]
+
+    for (const candidate of candidates) {
+        const parsed = parseDate(candidate)
+        if (parsed) {
+            return parsed
+        }
+    }
+
+    return null
+}
+
+function getHolidayDateFromRange(row: Row): Date | null {
+    const candidates = [
+        getValueCaseInsensitive(row, 'holDate'),
+        getValueCaseInsensitive(row, 'dateFrom'),
+        getValueCaseInsensitive(row, 'fromDate'),
+        getValueCaseInsensitive(row, 'startDate'),
+        getValueCaseInsensitive(row, 'holidayDateFrom'),
+    ]
+
+    for (const candidate of candidates) {
+        const parsed = parseDate(candidate)
+        if (parsed) {
+            return parsed
+        }
+    }
+
+    return null
+}
+
+function getHolidayDateToRange(row: Row): Date | null {
+    const candidates = [
+        getValueCaseInsensitive(row, 'dateTo'),
+        getValueCaseInsensitive(row, 'toDate'),
+        getValueCaseInsensitive(row, 'endDate'),
+        getValueCaseInsensitive(row, 'holidayDateTo'),
+    ]
+
+    for (const candidate of candidates) {
+        const parsed = parseDate(candidate)
+        if (parsed) {
+            return parsed
+        }
+    }
+
+    return null
+}
+
+function getHolidayName(row: Row): string | null {
+    const holidayType = String(getValueCaseInsensitive(row, 'type') ?? '').trim()
+    const holidayName = String(getValueCaseInsensitive(row, 'holName') ?? '').trim()
+
+    if (holidayType && holidayName) {
+        return `${holidayType} - ${holidayName}`
+    }
+
+    if (holidayType || holidayName) {
+        return holidayType || holidayName
+    }
+
+    const candidates = [
+        getValueCaseInsensitive(row, 'holidayName'),
+        getValueCaseInsensitive(row, 'name'),
+        getValueCaseInsensitive(row, 'description'),
+    ]
+
+    for (const candidate of candidates) {
+        const text = String(candidate ?? '').trim()
+        if (text) {
+            return text
+        }
+    }
+
+    return null
+}
+
+function getHolidayDateKeysForRow(row: Row): string[] {
+    const rangeStart = getHolidayDateFromRange(row)
+    const rangeEnd = getHolidayDateToRange(row)
+
+    if (rangeStart && rangeEnd) {
+        const startOfRange = startOfDay(rangeStart)
+        const endOfRange = startOfDay(rangeEnd)
+        const start = startOfRange <= endOfRange ? startOfRange : endOfRange
+        const end = startOfRange <= endOfRange ? endOfRange : startOfRange
+
+        const keys: string[] = []
+        let cursor = start
+
+        while (cursor <= end) {
+            keys.push(toDateKey(cursor))
+            cursor = addDays(cursor, 1)
+        }
+
+        return keys
+    }
+
+    const singleDate = getHolidaySourceDate(row)
+    if (!singleDate) {
+        return []
+    }
+
+    return [toDateKey(startOfDay(singleDate))]
+}
+
 function getBirthDate(row: Row): Date | null {
     const empBday = getValueCaseInsensitive(row, 'empBday')
     return parseDate(empBday)
@@ -408,12 +523,24 @@ export default async function EmployeeViewPage({
     const leavesRows = allLeavesRows.filter(
         (row) => String(getValueCaseInsensitive(row, 'empRec') ?? '').trim() === empRec
     )
+    const holidaysRows = await getAllHolidaysRows()
     const consolidatedRows = consolidateByDate(rows, leavesRows)
     const leaveDateKeys = new Set<string>()
     for (const leaveRow of leavesRows) {
         const keys = getLeaveDateKeysForRow(leaveRow)
         for (const key of keys) {
             leaveDateKeys.add(key)
+        }
+    }
+    const holidayByDateKey = new Map<string, string | null>()
+    for (const holidayRow of holidaysRows) {
+        const keys = getHolidayDateKeysForRow(holidayRow)
+        const holidayName = getHolidayName(holidayRow)
+
+        for (const key of keys) {
+            if (!holidayByDateKey.has(key) || holidayName) {
+                holidayByDateKey.set(key, holidayName)
+            }
         }
     }
     const earliestDate = consolidatedRows[0]?.date
@@ -433,9 +560,9 @@ export default async function EmployeeViewPage({
     return (
         <div className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900">
             <div className="mx-auto w-full max-w-6xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-                <h1 className="text-2xl font-semibold tracking-tight">Employee DTR</h1>
-                <p className="mt-2 text-base text-slate-600 sm:text-sm">
-                    Employee ID: <span className="font-medium text-slate-900">{empOldId}</span>
+                <h1 className="text-2xl font-semibold tracking-tight">📅 Employee DTR</h1>
+                <p className="mt-2 text-base text-slate-600 text-lg sm:text-lg">
+                    Employee ID: <span className="font-semibold text-slate-600">{empOldId}</span>
                 </p>
 
                 {displayRows.length === 0 ? (
@@ -444,7 +571,7 @@ export default async function EmployeeViewPage({
                     <BirthdateAccessGate enabled={displayRows.length > 0} expectedPasswordHash={expectedBirthdatePasswordHash}>
                         <DownloadIdQrButton employeeId={empOldId} />
                         <div className="mt-4 w-full overflow-x-auto rounded-xl border border-slate-200">
-                            <table className="mx-auto w-full min-w-max table-auto divide-y divide-slate-200 text-left text-sm sm:text-sm lg:w-full lg:min-w-[52rem] lg:table-fixed">
+                            <table className="mx-auto w-full min-w-max table-auto divide-y divide-slate-200 text-left text-lg sm:text-lg lg:w-full lg:min-w-[52rem] lg:table-fixed">
                                 <thead className="bg-slate-100 uppercase tracking-wide text-slate-700">
                                     <tr>
                                         <th className="px-2 py-2 font-semibold sm:px-3 lg:w-[40%]">date</th>
@@ -455,6 +582,7 @@ export default async function EmployeeViewPage({
                                 <tbody className="divide-y divide-slate-100 bg-white">
                                     {displayRows.map((row, index) => {
                                         if (row.kind === 'gap') {
+                                            const holidayLabel = holidayByDateKey.get(toDateKey(row.date))
                                             const badgeClass =
                                                 row.label === 'LEAVE FILED'
                                                     ? 'border-emerald-300 bg-emerald-100 text-emerald-900'
@@ -464,12 +592,19 @@ export default async function EmployeeViewPage({
 
                                             return (
                                                 <tr key={`gap-${index}-${toDateKey(row.date)}`} className="bg-slate-50">
-                                                    <td className="whitespace-nowrap px-2 py-2 font-medium text-slate-700 sm:px-3">
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <span>{formatShortDate(row.date)}</span>
-                                                            <span className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${badgeClass}`}>
-                                                                {row.label}
-                                                            </span>
+                                                    <td className="px-2 py-2 font-medium text-slate-700 sm:px-3">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span>{formatShortDate(row.date)}</span>
+                                                                <span className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${badgeClass}`}>
+                                                                    {row.label}
+                                                                </span>
+                                                            </div>
+                                                            {holidayLabel !== undefined ? (
+                                                                <div className="mt-1 block">
+                                                                    <HolidayBadge details={holidayLabel} />
+                                                                </div>
+                                                            ) : null}
                                                         </div>
                                                     </td>
                                                     <td className="whitespace-nowrap px-2 py-2 text-slate-500 sm:px-3">-</td>
@@ -482,32 +617,42 @@ export default async function EmployeeViewPage({
                                         const secondPair = row.value.pairs[1]
                                         const hasSecondPair = Boolean(secondPair)
                                         const rowSpan = hasSecondPair ? 2 : 1
+                                        const holidayLabel = holidayByDateKey.get(
+                                            toDateKey(row.value.date)
+                                        )
                                         const hasNoStatusBadge =
-                                            !row.value.hasLeaveFiled && !row.value.hasManual
+                                            !row.value.hasLeaveFiled && !row.value.hasManual && holidayLabel === undefined
 
                                         return (
                                             <Fragment key={`log-group-${firstPair?.key ?? `log-${index}-${toDateKey(row.value.date)}`}`}>
                                                 <tr key={`${firstPair?.key ?? `log-${index}-${toDateKey(row.value.date)}-1`}-1`} className="hover:bg-slate-50">
                                                     <td
                                                         rowSpan={rowSpan}
-                                                        className="whitespace-nowrap px-2 py-2 align-top text-slate-800 sm:px-3"
+                                                        className="px-2 py-2 align-top text-slate-800 sm:px-3"
                                                     >
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <span>{formatShortDate(row.value.date)}</span>
-                                                            {row.value.hasLeaveFiled ? (
-                                                                <span className="inline-flex w-fit rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-emerald-900">
-                                                                    LEAVE FILED
-                                                                </span>
-                                                            ) : null}
-                                                            {row.value.hasManual ? (
-                                                                <span className="inline-flex w-fit rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-900">
-                                                                    manual
-                                                                </span>
-                                                            ) : null}
-                                                            {hasNoStatusBadge ? (
-                                                                <span className="inline-flex w-fit rounded-full border border-slate-300 bg-transparent px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-slate-700">
-                                                                    {formatWeekday(row.value.date)}
-                                                                </span>
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span>{formatShortDate(row.value.date)}</span>
+                                                                {row.value.hasLeaveFiled ? (
+                                                                    <span className="inline-flex w-fit rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-emerald-900">
+                                                                        LEAVE FILED
+                                                                    </span>
+                                                                ) : null}
+                                                                {row.value.hasManual ? (
+                                                                    <span className="inline-flex w-fit rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-900">
+                                                                        manual
+                                                                    </span>
+                                                                ) : null}
+                                                                {hasNoStatusBadge ? (
+                                                                    <span className="inline-flex w-fit rounded-full border border-slate-300 bg-transparent px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-slate-700">
+                                                                        {formatWeekday(row.value.date)}
+                                                                    </span>
+                                                                ) : null}
+                                                            </div>
+                                                            {holidayLabel !== undefined ? (
+                                                                <div className="mt-1 block">
+                                                                    <HolidayBadge details={holidayLabel} />
+                                                                </div>
                                                             ) : null}
                                                         </div>
                                                     </td>

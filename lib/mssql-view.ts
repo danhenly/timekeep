@@ -6,6 +6,7 @@ const poolCache = globalThis as typeof globalThis & {
     mssqlPoolPromise?: Promise<sql.ConnectionPool>
     allViewRowsPromise?: Promise<ViewRow[]>
     allLeavesRowsPromise?: Promise<ViewRow[]>
+    allHolidaysRowsPromise?: Promise<ViewRow[]>
 }
 
 function parseServerValue(raw: string): { host: string; instanceName?: string } {
@@ -61,6 +62,13 @@ export function getLeavesViewName(): string {
     return getSafeObjectName(
         requireEnv('MSSQL_LEAVES_VIEW_NAME'),
         'MSSQL_LEAVES_VIEW_NAME'
+    )
+}
+
+export function getHolidaysViewName(): string {
+    return getSafeObjectName(
+        requireEnv('MSSQL_HOLIDAYS_VIEW_NAME'),
+        'MSSQL_HOLIDAYS_VIEW_NAME'
     )
 }
 
@@ -132,6 +140,13 @@ async function queryAllLeavesRows(): Promise<ViewRow[]> {
     return result.recordset as ViewRow[]
 }
 
+async function queryAllHolidaysRows(): Promise<ViewRow[]> {
+    const viewName = getHolidaysViewName()
+    const pool = await getPool()
+    const result = await pool.request().query(`SELECT * FROM ${viewName}`)
+    return result.recordset as ViewRow[]
+}
+
 export function getAllViewRows(): Promise<ViewRow[]> {
     if (!poolCache.allViewRowsPromise) {
         // Reuse one DB read for static params generation and page rendering.
@@ -153,6 +168,21 @@ export function getAllLeavesRows(): Promise<ViewRow[]> {
     }
 
     return poolCache.allLeavesRowsPromise
+}
+
+export function getAllHolidaysRows(): Promise<ViewRow[]> {
+    if (!process.env.MSSQL_HOLIDAYS_VIEW_NAME?.trim()) {
+        return Promise.resolve([])
+    }
+
+    if (!poolCache.allHolidaysRowsPromise) {
+        poolCache.allHolidaysRowsPromise = queryAllHolidaysRows().catch((error: unknown) => {
+            poolCache.allHolidaysRowsPromise = undefined
+            throw error
+        })
+    }
+
+    return poolCache.allHolidaysRowsPromise
 }
 
 export async function getRowsForEmpRec(empRec: string): Promise<ViewRow[]> {

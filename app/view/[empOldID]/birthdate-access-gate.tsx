@@ -92,9 +92,9 @@ export default function BirthdateAccessGate({
     if (accessState === 'pending') {
         return (
             <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-                <p className="text-sm font-medium text-slate-800">Birthdate Verification</p>
-                <p className="mt-1 text-sm text-slate-600">
-                    Enter your birthdate password in MmmDDYYYY format (example: Jan012000).
+                <p className="text-lg font-semibold text-slate-800">🔐 Birthdate Verification</p>
+                <p className="mt-1 text-lg font-semibold text-slate-600">
+                    Enter your birthdate in MmmDDYYYY format (example: Jan012000).
                 </p>
                 <form className="mt-4 flex flex-col gap-3" onSubmit={handleSubmit}>
                     <input
